@@ -1,7 +1,7 @@
-/* Офлайн-режим для «Тренировочного журнала».
+/* Офлайн-режим для T/app.
    Страница: сначала сеть (чтобы обновления приходили сами), при отсутствии связи берётся копия из памяти.
    Остальные файлы приложения и шрифты Google: из памяти, обновляются в фоне. */
-const SHELL_CACHE = 'trainlog-shell-v1';
+const SHELL_CACHE = 'trainlog-shell-v3';
 const FONT_CACHE = 'trainlog-fonts-v1';
 const SHELL = [
   './', 'index.html', 'manifest.webmanifest', 'favicon.svg',
