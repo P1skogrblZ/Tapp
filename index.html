@@ -413,7 +413,7 @@ input::placeholder { color: var(--dim); }
   }
 
   var state = { sessions: {}, body: [], cal: {}, plan: defaultPlan(), goals: { protein: 0 }, foods: [] };
-  var ui = { tab: 'today', date: todayStr(), metric: 'top', exercise: null, drafts: {}, newEx: '', bwKg: '', kcalIn: '', protIn: '', goalEdit: false, fold: {}, confirmDel: null, importPending: null, loaded: false, foodOpen: false, foodQ: '', foodSel: null, foodG: '', foodNew: false, nf: { n: '', k: '', p: '', bc: '' }, nfNote: '', codeIn: '' };
+  var ui = { tab: 'today', date: todayStr(), metric: 'e1rm', exercise: null, drafts: {}, newEx: '', bwKg: '', kcalIn: '', protIn: '', goalEdit: false, fold: {}, confirmDel: null, importPending: null, loaded: false, foodOpen: false, foodQ: '', foodSel: null, foodG: '', foodNew: false, nf: { n: '', k: '', p: '', bc: '' }, nfNote: '', codeIn: '' };
   var msgTimer = null;
   var installEvt = null;
 
@@ -795,22 +795,54 @@ input::placeholder { color: var(--dim); }
     }
     return b;
   }
+  function recentSessions(name, date, n) {
+    var ds = sortedDates().filter(function (d) { return d < date; }).reverse(), out = [];
+    for (var i = 0; i < ds.length && out.length < n; i++) {
+      var ex = state.sessions[ds[i]].exercises.find(function (e) { return e.name === name && e.sets.length; });
+      if (ex) out.push(ex.sets);
+    }
+    return out;
+  }
   function exProgress(ex, date) {
     if (!ex.sets.length) return null;
-    var best = bestOf(ex.sets);
-    if (!(best > 0)) return null;
-    var prev = lastBefore(ex.name, date);
-    if (!prev) return { lvl: 'good', title: 'Первая запись', sub: 'Это точка отсчёта. Дальше будет с чем сравнивать.' };
-    var pb = recentBest(ex.name, date, 3), all = 0;
-    sortedDates().forEach(function (d) {
-      if (d >= date) return;
-      state.sessions[d].exercises.forEach(function (e) { if (e.name === ex.name) all = Math.max(all, bestOf(e.sets)); });
-    });
-    var d = best - pb;
+    var prevAll = recentSessions(ex.name, date, 1000);
+    if (!prevAll.length) return { lvl: 'good', title: 'Первая запись', sub: 'Это точка отсчёта. Дальше будет с чем сравнивать.' };
+    var rec = prevAll.slice(0, 3), sets = ex.sets, flat = [], i;
+    rec.forEach(function (r) { r.forEach(function (st) { flat.push(st); }); });
+    var allSets = []; prevAll.forEach(function (r) { r.forEach(function (st) { allSets.push(st); }); });
+    var plain = sets.every(function (st) { return !(st.kg > 0); });
+    var maxKg = 0; flat.forEach(function (st) { maxKg = Math.max(maxKg, st.kg); });
+    var topKg = 0; sets.forEach(function (st) { topKg = Math.max(topKg, st.kg); });
+    // reps at the same or heavier weight in recent sessions
+    function repsAt(kg) { var m = -1, tol = Math.max(0.5, kg * 0.025); flat.forEach(function (st) { if (Math.abs(st.kg - kg) <= tol) m = Math.max(m, st.reps); }); return m; }
+    var best = bestOf(sets), all = bestOf(allSets), pb = Math.max.apply(null, rec.map(bestOf));
+    var volNow = exVolume(sets), volRec = Math.max.apply(null, rec.map(exVolume));
+    var repsNow = 0; sets.forEach(function (st) { repsNow += st.reps; });
+    var repsRec = Math.max.apply(null, rec.map(function (r) { var t = 0; r.forEach(function (st) { t += st.reps; }); return t; }));
+    if (plain) {
+      var mxNow = Math.max.apply(null, sets.map(function (st) { return st.reps; })), mxAll = Math.max.apply(null, allSets.map(function (st) { return st.reps; })), mxRec = Math.max.apply(null, flat.map(function (st) { return st.reps; }));
+      if (mxNow > mxAll) return { lvl: 'beast', title: 'Новый рекорд', sub: mxNow + ' повт. в подходе, это +' + (mxNow - mxAll) + ' к лучшему результату.' };
+      if (mxNow > mxRec) return { lvl: 'strong', title: 'Больше повторений', sub: '+' + (mxNow - mxRec) + ' повт. в лучшем подходе по сравнению с последними занятиями.' };
+      if (repsNow > repsRec) return { lvl: 'good', title: 'Больше повторений', sub: '+' + (repsNow - repsRec) + ' повт. в сумме по сравнению с последними занятиями.' };
+      if (repsNow === repsRec || mxNow === mxRec) return { lvl: 'ok', title: 'Держишь уровень', sub: 'Столько же повторений, как в лучшем из последних занятий.' };
+      return null;
+    }
     if (best > all + 0.05) return { lvl: 'beast', title: 'Новый рекорд', sub: 'Расчётный максимум ' + fmtNum(r1(best)) + ' кг, это +' + fmtNum(r1(best - all)) + ' кг к лучшему результату.' };
-    if (d > pb * 0.025) return { lvl: 'strong', title: 'Сильнее, чем недавно', sub: '+' + fmtNum(r1(d)) + ' кг к лучшему из последних трёх занятий.' };
-    if (d > 0.05) return { lvl: 'good', title: 'Есть прогресс', sub: '+' + fmtNum(r1(d)) + ' кг к расчётному максимуму. Так держать.' };
-    if (Math.abs(d) <= 0.05) return { lvl: 'ok', title: 'Держишь уровень', sub: 'Тот же расчётный максимум, что в лучшем из последних занятий.' };
+    if (topKg > maxKg + 0.01) return { lvl: 'strong', title: 'Больше вес', sub: fmtNum(topKg) + ' кг, это +' + fmtNum(r1(topKg - maxKg)) + ' кг к лучшему рабочему весу последних занятий.' };
+    var bestRep = null;
+    sets.forEach(function (st) {
+      var r = repsAt(st.kg);
+      if (r >= 0 && st.reps > r && (!bestRep || st.reps - r > bestRep.d)) bestRep = { d: st.reps - r, kg: st.kg };
+    });
+    if (bestRep) return { lvl: bestRep.d >= 2 ? 'strong' : 'good', title: 'Больше повторений', sub: '+' + bestRep.d + ' повт. при ' + fmtNum(bestRep.kg) + ' кг по сравнению с последними занятиями.' };
+    var sameTop = rec.filter(function (r) { var t = 0; r.forEach(function (st) { t = Math.max(t, st.kg); }); return Math.abs(t - topKg) <= Math.max(0.5, topKg * 0.025); });
+    if (sameTop.length) {
+      var tr = Math.max.apply(null, sameTop.map(function (r) { var t = 0; r.forEach(function (st) { t += st.reps; }); return t; }));
+      if (repsNow > tr) return { lvl: 'good', title: 'Больше повторений', sub: '+' + (repsNow - tr) + ' повт. в сумме при тех же весах, всего ' + repsNow + '.' };
+    }
+    if (best > pb + 0.05) return { lvl: 'good', title: 'Есть прогресс', sub: '+' + fmtNum(r1(best - pb)) + ' кг к расчётному максимуму. Так держать.' };
+    if (volRec > 0 && volNow > volRec * 1.025) return { lvl: 'good', title: 'Больше объёма', sub: '+' + fmtInt(volNow - volRec) + ' кг объёма в этом упражнении по сравнению с последними занятиями.' };
+    if (Math.abs(best - pb) <= 0.05 || sets.length > 0 && sets.some(function (st) { return flat.some(function (q) { return Math.abs(q.kg - st.kg) < 0.01 && q.reps === st.reps; }); })) return { lvl: 'ok', title: 'Держишь уровень', sub: 'Тот же уровень, что в лучшем из последних занятий.' };
     return null;
   }
   function progBadge(ex) {
@@ -1240,18 +1272,17 @@ input::placeholder { color: var(--dim); }
     var reps = parseInt(document.getElementById('rp-' + i).value, 10);
     if (isNaN(kg) || kg < 0 || kg > 1000) { setMsg('Проверь вес: нужно число от 0 до 1000.'); return; }
     if (isNaN(reps) || reps < 1 || reps > 200) { setMsg('Проверь повторы: нужно целое число от 1 до 200.'); return; }
-    var xp0 = totalXP(), lv0 = lvInfo(xp0).l, aw0 = earnedIds(), st0 = streakInfo(), first = setCount(s) === 0;
+    var p0 = exProgress(ex, ui.date), xp0 = totalXP(), lv0 = lvInfo(xp0).l, aw0 = earnedIds(), st0 = streakInfo(), first = setCount(s) === 0;
     var est = e1rm(kg, reps), allBest = bestEst(ex.name), todayBest = bestOf(ex.sets), prev = lastBefore(ex.name, ui.date);
     var lastBest = prev ? recentBest(ex.name, ui.date, 3) : 0;
     ex.sets.push({ kg: Math.round(kg * 100) / 100, reps: reps });
     ui.drafts[ex.name] = { kg: fmtNum(kg), reps: String(reps) };
     persistSession(ui.date);
-    var lv1 = lvInfo(totalXP()), aw1 = earnedIds(), st1 = streakInfo();
+    var p1 = exProgress(ex, ui.date), lv1 = lvInfo(totalXP()), aw1 = earnedIds(), st1 = streakInfo();
     var newAw = AWARDS.filter(function (w) { return aw1.indexOf(w.id) >= 0 && aw0.indexOf(w.id) < 0; });
     if (lv1.l > lv0) setMsg('Новый уровень: ' + lv1.l + ', ' + lv1.rank + '! +10 XP', 'beast');
     else if (newAw.length) setMsg('Награда: ' + newAw[0].n + '! +10 XP', 'beast');
-    else if (allBest > 0 && est > allBest + 0.05) setMsg('Новый рекорд! Расчётный максимум ' + fmtNum(r1(est)) + ' кг. +10 XP', 'beast');
-    else if (lastBest > 0 && est > lastBest + 0.05 && todayBest <= lastBest + 0.05) setMsg('Сильнее, чем в последние занятия. +10 XP', 'strong');
+    else if (p1 && p1.lvl !== 'ok' && p1.title !== 'Первая запись' && (!p0 || p0.title !== p1.title || p0.lvl !== p1.lvl)) setMsg(p1.title + '! ' + p1.sub.split('.')[0] + '. +10 XP', p1.lvl);
     else if (first && st1.n > st0.n && st1.n > 1) setMsg('Серия: ' + st1.n + '. +30 XP', 'strong');
     else setMsg('+10 XP · ' + PRAISE[Math.floor(Math.random() * PRAISE.length)], 'good');
     render();
