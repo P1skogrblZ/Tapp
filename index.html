@@ -296,6 +296,45 @@ input::placeholder { color: var(--dim); }
 .sub { font-size: 12px; color: var(--muted); text-transform: uppercase; letter-spacing: .06em; margin: 0; }
 .fold .chartbox { padding: 6px 0 0; }
 .fold .tile { background: var(--raise); }
+
+/* motivation */
+.duo { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 4px 16px; align-items: center; padding: 12px 14px; }
+.duo .streak { display: flex; align-items: center; gap: 4px; font-family: var(--display); font-size: 34px; font-weight: 600; line-height: 1; font-variant-numeric: tabular-nums; }
+.duo .streak .ic { width: 32px; height: 32px; color: var(--red-hi); }
+.duo .streak.off .ic { color: var(--muted); }
+.duo .streak small { display: block; font: 500 11px var(--text); color: var(--muted); text-transform: uppercase; letter-spacing: .06em; margin-top: 3px; }
+.duo .lv { min-width: 0; }
+.duo .lv b { display: flex; justify-content: space-between; gap: 8px; font-size: 15px; font-weight: 600; }
+.duo .lv b span { color: var(--muted); font-weight: 500; font-size: 13px; font-variant-numeric: tabular-nums; }
+.duo .lv .bar { margin-top: 8px; height: 8px; }
+.duo .hint { grid-column: 1 / -1; margin: 6px 0 0; font-size: 13px; color: var(--muted); line-height: 1.4; }
+.duo .hint b { color: var(--ink); font-weight: 600; }
+.fin { position: fixed; inset: 0; z-index: 70; background: var(--bg); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 14px; padding: calc(24px + env(safe-area-inset-top)) 20px calc(24px + env(safe-area-inset-bottom)); text-align: center; overflow-y: auto; }
+.fin .ic.face { width: 104px; height: 104px; color: var(--red-hi); stroke-width: 1.5; }
+.fin h2 { font-size: 30px; }
+.fin p { margin: 0; color: var(--muted); font-size: 15px; }
+.fin .st { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; width: 100%; max-width: 420px; }
+.fin .st div { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 12px 6px; }
+.fin .st b { display: block; font-family: var(--display); font-size: 26px; font-weight: 600; font-variant-numeric: tabular-nums; }
+.fin .st span { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: .06em; }
+.fin .st .hot b { color: var(--red-hi); }
+.fin .lvbox { width: 100%; max-width: 420px; text-align: left; }
+.fin .lvbox b { display: flex; justify-content: space-between; font-size: 15px; }
+.fin .lvbox b span { color: var(--muted); font-weight: 500; font-size: 13px; }
+.fin .lvbox .bar { margin-top: 8px; }
+.fin .pri { max-width: 420px; width: 100%; }
+.awgrid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+.aw { background: var(--raise); border: 1px solid var(--line); border-radius: 12px; padding: 10px; display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.aw .ic { width: 22px; height: 22px; color: var(--red-hi); }
+.aw b { font-size: 14px; font-weight: 600; }
+.aw span { font-size: 12px; color: var(--muted); line-height: 1.35; }
+.aw.lock { opacity: .55; }
+.aw.lock .ic { color: var(--muted); }
+.aw .bar { margin-top: 4px; height: 5px; }
+@media (prefers-reduced-motion: no-preference) {
+  @keyframes pop { 0% { transform: scale(.6); opacity: 0; } 60% { transform: scale(1.12); opacity: 1; } 100% { transform: scale(1); } }
+  .fin .ic.face { animation: pop .5s ease-out; }
+}
 </style>
 </head>
 <body>
@@ -520,6 +559,99 @@ input::placeholder { color: var(--dim); }
     }
     return out;
   }
+  /* ---------- motivation: streak, XP, levels, awards ---------- */
+  var RANKS = ['Новичок', 'Любитель', 'Боец', 'Атлет', 'Мастер', 'Легенда'];
+  var PRAISE = ['Так держать!', 'Отличный подход!', 'Ещё один в копилку!', 'Сила растёт!', 'Хорошая работа!', 'Не останавливайся!', 'Это засчитано!'];
+  function addDays(ds, n) { var d = pd(ds); d.setDate(d.getDate() + n); return dstr(d); }
+  function xpNeed(l) { return 50 * (l - 1) * l; }
+  function dayXP(ds) { var n = setCount(state.sessions[ds]); return n ? n * 10 + 20 : 0; }
+  function totalXP() { var t = 0; Object.keys(state.sessions).forEach(function (d) { t += dayXP(d); }); return t; }
+  function lvInfo(xp) {
+    var l = 1; while (xp >= xpNeed(l + 1)) l++;
+    var lo = xpNeed(l), hi = xpNeed(l + 1);
+    return { l: l, rank: RANKS[Math.min(RANKS.length - 1, Math.floor((l - 1) / 2))], xp: xp, into: xp - lo, span: hi - lo, pct: Math.round((xp - lo) / (hi - lo) * 100) };
+  }
+  function streakInfo() {
+    var ds = sortedDates().filter(function (d) { return setCount(state.sessions[d]) > 0; });
+    var today = todayStr(), r = { n: 0, best: 0, todayDone: setCount(state.sessions[today]) > 0, days: ds.length };
+    if (!ds.length) return r;
+    var cur = 0, d = ds[0], guard = 0;
+    while (d <= today && guard++ < 1500) {
+      if (setCount(state.sessions[d]) > 0) { cur++; if (cur > r.best) r.best = cur; }
+      else if (dayType(d) === 'train' && d !== today) cur = 0;
+      d = addDays(d, 1);
+    }
+    r.n = cur;
+    return r;
+  }
+  function allStats() {
+    var st = streakInfo(), sets = 0, maxDay = 0, perfect = 0, pd2 = 0, byWeek = {};
+    Object.keys(state.sessions).forEach(function (d) {
+      var c = setCount(state.sessions[d]); sets += c;
+      if (c > 0) { maxDay = Math.max(maxDay, sessionVolume(state.sessions[d])); byWeek[weekStart(d)] = 1; }
+    });
+    var today = todayStr();
+    Object.keys(byWeek).forEach(function (w) {
+      var done = 0, planned = 0, ds = [];
+      for (var i = 0; i < 7; i++) ds.push(addDays(w, i));
+      ds.forEach(function (d) { if (dayType(d) === 'train') planned++; });
+      ds.forEach(function (d) { if (dayType(d) === 'train' && setCount(state.sessions[d]) > 0) done++; });
+      if (planned > 0 && done >= planned) perfect++;
+    });
+    Object.keys(state.cal).forEach(function (d) { if (dayProtein(d) >= proteinGoal()) pd2++; });
+    return { sets: sets, days: st.days, best: st.best, maxDay: maxDay, perfect: perfect, protDays: pd2, level: lvInfo(totalXP()).l };
+  }
+  var AWARDS = [
+    { id: 'first', n: 'Первый шаг', d: 'Запиши первую тренировку', v: function (a) { return a.days; }, g: 1 },
+    { id: 's3', n: 'Серия 3', d: 'Три тренировки подряд без пропусков', v: function (a) { return a.best; }, g: 3 },
+    { id: 's7', n: 'Серия 7', d: 'Семь тренировок подряд', v: function (a) { return a.best; }, g: 7 },
+    { id: 's14', n: 'Серия 14', d: 'Две недели без пропусков', v: function (a) { return a.best; }, g: 14 },
+    { id: 's30', n: 'Серия 30', d: 'Тридцать тренировок подряд', v: function (a) { return a.best; }, g: 30 },
+    { id: 'set50', n: '50 подходов', d: 'Выполни 50 подходов', v: function (a) { return a.sets; }, g: 50 },
+    { id: 'set250', n: '250 подходов', d: 'Выполни 250 подходов', v: function (a) { return a.sets; }, g: 250 },
+    { id: 'set1000', n: '1000 подходов', d: 'Выполни 1000 подходов', v: function (a) { return a.sets; }, g: 1000 },
+    { id: 'week', n: 'Идеальная неделя', d: 'Выполни все запланированные тренировки недели', v: function (a) { return a.perfect; }, g: 1 },
+    { id: 'ton', n: 'Пять тонн', d: 'Набери 5000 кг объёма за один день', v: function (a) { return a.maxDay; }, g: 5000 },
+    { id: 'prot', n: 'Белок в норме', d: 'Выполни цель по белку три дня', v: function (a) { return a.protDays; }, g: 3 },
+    { id: 'lv5', n: 'Уровень 5', d: 'Дорасти до пятого уровня', v: function (a) { return a.level; }, g: 5 }
+  ];
+  function earnedIds() { var a = allStats(); return AWARDS.filter(function (w) { return w.v(a) >= w.g; }).map(function (w) { return w.id; }); }
+  function awardsBody() {
+    var a = allStats();
+    return '<div class="awgrid">' + AWARDS.map(function (w) {
+      var v = Math.min(w.g, w.v(a)), ok = v >= w.g;
+      return '<div class="aw' + (ok ? '' : ' lock') + '">' + ic('trophy') + '<b>' + w.n + '</b><span>' + w.d + '</span>' +
+        (ok ? '' : '<div class="bar"><span style="width:' + Math.round(v / w.g * 100) + '%"></span></div>') + '</div>';
+    }).join('') + '</div>';
+  }
+  function duoCard() {
+    var st = streakInfo(), lv = lvInfo(totalXP()), today = todayStr();
+    var planned = dayType(today) === 'train', hint = '';
+    if (!st.days) hint = 'Запиши первый подход, и серия начнётся.';
+    else if (st.todayDone) hint = '<b>Цель дня выполнена.</b> ' + (st.n > 1 ? 'Серия растёт.' : 'Хорошее начало серии.');
+    else if (planned) hint = st.n > 0 ? 'Сегодня тренировка: запиши подход и <b>сохрани серию из ' + st.n + '</b>.' : 'Сегодня тренировка: запиши подход и начни новую серию.';
+    else hint = 'Сегодня отдых. Серия сохраняется.';
+    return '<section class="card duo" aria-label="Серия и уровень"><div class="streak' + (st.n ? '' : ' off') + '">' + ic('flame') + '<div>' + st.n + '<small>серия</small></div></div>' +
+      '<div class="lv"><b>Ур. ' + lv.l + ' · ' + lv.rank + '<span>' + lv.into + ' / ' + lv.span + ' XP</span></b><div class="bar" role="img" aria-label="До следующего уровня ' + lv.pct + '%"><span style="width:' + lv.pct + '%"></span></div></div>' +
+      '<p class="hint">' + hint + '</p></section>';
+  }
+  function finishView() {
+    var s = cur(); if (!s || !setCount(s)) return;
+    var st = streakInfo(), lv = lvInfo(totalXP()), recs = 0;
+    s.exercises.forEach(function (ex) { var p = exProgress(ex, ui.date); if (p && p.lvl === 'beast') recs++; });
+    var n = setCount(s), title = recs ? 'Рекорды! Это было сильно' : n >= 12 ? 'Мощная тренировка!' : 'Тренировка завершена!';
+    var o = document.getElementById('fin'); if (o) o.remove();
+    o = document.createElement('div'); o.id = 'fin'; o.className = 'fin'; o.setAttribute('role', 'dialog'); o.setAttribute('aria-label', 'Итоги тренировки');
+    o.innerHTML = face(recs ? 'beast' : n >= 12 ? 'strong' : 'good') + '<h2>' + title + '</h2><p>' + fmtShort(ui.date) + '. Ещё один шаг к цели.</p>' +
+      '<div class="st"><div class="hot"><b>+' + dayXP(ui.date) + '</b><span>XP</span></div><div><b>' + n + '</b><span>' + plural(n) + '</span></div><div><b>' + fmtK(sessionVolume(s)) + '</b><span>кг объём</span></div></div>' +
+      '<div class="st"><div><b>' + st.n + '</b><span>серия</span></div><div><b>' + recs + '</b><span>рекордов</span></div><div><b>' + lv.l + '</b><span>уровень</span></div></div>' +
+      '<div class="lvbox"><b>' + lv.rank + '<span>' + lv.into + ' / ' + lv.span + ' XP</span></b><div class="bar"><span style="width:' + lv.pct + '%"></span></div></div>' +
+      '<button class="pri" id="fin-x">Продолжить</button>';
+    setMsg('');
+    document.body.appendChild(o);
+    document.getElementById('fin-x').onclick = function () { o.remove(); };
+    document.getElementById('fin-x').focus();
+  }
   function weekStart(s) { var d = pd(s), k = (d.getDay() + 6) % 7; d.setDate(d.getDate() - k); return dstr(d); }
   function weeklyVolume(n) {
     var base = pd(weekStart(todayStr())), out = [], idx = {}, i;
@@ -655,22 +787,30 @@ input::placeholder { color: var(--dim); }
   }
   function r1(x) { return Math.round(x * 10) / 10; }
   function bestOf(sets) { var b = 0; sets.forEach(function (st) { b = Math.max(b, e1rm(st.kg, st.reps)); }); return b; }
+  function recentBest(name, date, n) {
+    var ds = sortedDates().filter(function (d) { return d < date; }).reverse(), b = 0, c = 0;
+    for (var i = 0; i < ds.length && c < n; i++) {
+      var ex = state.sessions[ds[i]].exercises.find(function (e) { return e.name === name && e.sets.length; });
+      if (ex) { b = Math.max(b, bestOf(ex.sets)); c++; }
+    }
+    return b;
+  }
   function exProgress(ex, date) {
     if (!ex.sets.length) return null;
     var best = bestOf(ex.sets);
     if (!(best > 0)) return null;
     var prev = lastBefore(ex.name, date);
     if (!prev) return { lvl: 'good', title: 'Первая запись', sub: 'Это точка отсчёта. Дальше будет с чем сравнивать.' };
-    var pb = bestOf(prev.sets), all = 0;
+    var pb = recentBest(ex.name, date, 3), all = 0;
     sortedDates().forEach(function (d) {
       if (d >= date) return;
       state.sessions[d].exercises.forEach(function (e) { if (e.name === ex.name) all = Math.max(all, bestOf(e.sets)); });
     });
     var d = best - pb;
     if (best > all + 0.05) return { lvl: 'beast', title: 'Новый рекорд', sub: 'Расчётный максимум ' + fmtNum(r1(best)) + ' кг, это +' + fmtNum(r1(best - all)) + ' кг к лучшему результату.' };
-    if (d > pb * 0.025) return { lvl: 'strong', title: 'Сильнее, чем в прошлый раз', sub: '+' + fmtNum(r1(d)) + ' кг к расчётному максимуму.' };
+    if (d > pb * 0.025) return { lvl: 'strong', title: 'Сильнее, чем недавно', sub: '+' + fmtNum(r1(d)) + ' кг к лучшему из последних трёх занятий.' };
     if (d > 0.05) return { lvl: 'good', title: 'Есть прогресс', sub: '+' + fmtNum(r1(d)) + ' кг к расчётному максимуму. Так держать.' };
-    if (Math.abs(d) <= 0.05) return { lvl: 'ok', title: 'Держишь уровень', sub: 'Тот же расчётный максимум, что в прошлый раз.' };
+    if (Math.abs(d) <= 0.05) return { lvl: 'ok', title: 'Держишь уровень', sub: 'Тот же расчётный максимум, что в лучшем из последних занятий.' };
     return null;
   }
   function progBadge(ex) {
@@ -832,7 +972,7 @@ input::placeholder { color: var(--dim); }
   function viewToday() {
     var s = cur(), exs = s ? s.exercises : [];
     var d = pd(ui.date), isToday = ui.date === todayStr(), rest = dayType(ui.date) === 'rest';
-    var h = '<section class="card day"><div class="daynav">' +
+    var h = duoCard() + '<section class="card day"><div class="daynav">' +
       '<button class="ib" data-act="dayshift" data-n="-1" aria-label="Предыдущий день">' + ic('left') + '</button>' +
       '<button class="daybtn" data-act="pickdate" aria-label="Выбрать дату"><span class="daybig"><span class="wd">' + WD[d.getDay()] + '</span><span class="dm">' + d.getDate() + ' ' + MON[d.getMonth()] + '</span></span>' + ic('calendar') + '</button>' +
       '<button class="ib" data-act="dayshift" data-n="1" aria-label="Следующий день">' + ic('right') + '</button></div>' +
@@ -856,6 +996,7 @@ input::placeholder { color: var(--dim); }
         '<button class="pri wide" data-act="addset" data-i="' + i + '">' + ic('plus') + 'Записать подход</button></article>';
     });
     if (!rest) h += addCard(exs);
+    if (setCount(s) > 0) h += '<button class="pri wide" data-act="finish">' + ic('trophy') + 'Завершить тренировку</button>';
     h += kcalCard();
     return h;
   }
@@ -924,7 +1065,9 @@ input::placeholder { color: var(--dim); }
           });
         });
       });
-      var delta = pts.length > 1 ? pts[pts.length - 1].v - pts[0].v : null;
+      var delta = null;
+      if (pts.length > 2) { var rc = pts.slice(-2), er = pts.slice(0, -2); delta = Math.max.apply(null, rc.map(function (q) { return q.v; })) - Math.max.apply(null, er.map(function (q) { return q.v; })); }
+      else if (pts.length === 2) delta = pts[1].v - pts[0].v;
       var dtxt = delta === null ? '—' : (delta > 0 ? '+' : delta < 0 ? '−' : '') + fmtNum(Math.abs(Math.round(delta * 10) / 10)) + ' кг';
       h += '<div class="chiprow" role="group" aria-label="Упражнение">' + names.map(function (n) {
           return '<button class="chip' + (n === ui.exercise ? ' on' : '') + '" data-act="pickex" data-n="' + esc(n) + '" aria-pressed="' + (n === ui.exercise) + '">' + esc(n) + '</button>';
@@ -939,6 +1082,8 @@ input::placeholder { color: var(--dim); }
     }
     var wkNow = weeklyVolume(8)[7], kToday = dayKcal(todayStr());
     h += fold('wk', true, 'bars', 'Неделя', wkNow.sets + ' ' + plural(wkNow.sets) + ' · ' + fmtK(wkNow.vol) + ' кг', volSection() + setsSection());
+    var aw = allStats(), earned = AWARDS.filter(function (w) { return w.v(aw) >= w.g; }).length;
+    h += fold('aw', false, 'trophy', 'Награды', earned + ' из ' + AWARDS.length, awardsBody());
     h += fold('nutp', false, 'flame', 'Питание', kToday ? fmtInt(kToday) + ' ккал сегодня' : '', kcalSection());
     var bw = state.body.slice().sort(function (a, b) { return a.date < b.date ? -1 : 1; });
     var bpts = bw.map(function (e) { return { t: pd(e.date).getTime(), date: e.date, v: e.kg }; });
@@ -1095,13 +1240,20 @@ input::placeholder { color: var(--dim); }
     var reps = parseInt(document.getElementById('rp-' + i).value, 10);
     if (isNaN(kg) || kg < 0 || kg > 1000) { setMsg('Проверь вес: нужно число от 0 до 1000.'); return; }
     if (isNaN(reps) || reps < 1 || reps > 200) { setMsg('Проверь повторы: нужно целое число от 1 до 200.'); return; }
+    var xp0 = totalXP(), lv0 = lvInfo(xp0).l, aw0 = earnedIds(), st0 = streakInfo(), first = setCount(s) === 0;
     var est = e1rm(kg, reps), allBest = bestEst(ex.name), todayBest = bestOf(ex.sets), prev = lastBefore(ex.name, ui.date);
-    var lastBest = prev ? bestOf(prev.sets) : 0;
+    var lastBest = prev ? recentBest(ex.name, ui.date, 3) : 0;
     ex.sets.push({ kg: Math.round(kg * 100) / 100, reps: reps });
     ui.drafts[ex.name] = { kg: fmtNum(kg), reps: String(reps) };
     persistSession(ui.date);
-    if (allBest > 0 && est > allBest + 0.05) setMsg('Новый рекорд! Расчётный максимум ' + fmtNum(r1(est)) + ' кг.', 'beast');
-    else if (lastBest > 0 && est > lastBest + 0.05 && todayBest <= lastBest + 0.05) setMsg('Сильнее, чем в прошлый раз. Так держать!', 'strong');
+    var lv1 = lvInfo(totalXP()), aw1 = earnedIds(), st1 = streakInfo();
+    var newAw = AWARDS.filter(function (w) { return aw1.indexOf(w.id) >= 0 && aw0.indexOf(w.id) < 0; });
+    if (lv1.l > lv0) setMsg('Новый уровень: ' + lv1.l + ', ' + lv1.rank + '! +10 XP', 'beast');
+    else if (newAw.length) setMsg('Награда: ' + newAw[0].n + '! +10 XP', 'beast');
+    else if (allBest > 0 && est > allBest + 0.05) setMsg('Новый рекорд! Расчётный максимум ' + fmtNum(r1(est)) + ' кг. +10 XP', 'beast');
+    else if (lastBest > 0 && est > lastBest + 0.05 && todayBest <= lastBest + 0.05) setMsg('Сильнее, чем в последние занятия. +10 XP', 'strong');
+    else if (first && st1.n > st0.n && st1.n > 1) setMsg('Серия: ' + st1.n + '. +30 XP', 'strong');
+    else setMsg('+10 XP · ' + PRAISE[Math.floor(Math.random() * PRAISE.length)], 'good');
     render();
   }
 
@@ -1363,6 +1515,7 @@ input::placeholder { color: var(--dim); }
       if (isNaN(gv) || gv < 20 || gv > 600) { setMsg('Цель по белку: число от 20 до 600 граммов.'); return; }
       state.goals.protein = gv; ui.goalEdit = false; persistGoals(); render();
     }
+    else if (a === 'finish') finishView();
     else if (a === 'fold') { var fk = b.dataset.k; ui.fold[fk] = !isOpen(fk, b.dataset.def === '1'); render(); }
     else if (a === 'kquick') { if (addMeal(+b.dataset.k, +b.dataset.p)) render(); }
     else if (a === 'foodtoggle') { ui.foodOpen = !ui.foodOpen; if (!ui.foodOpen) { ui.foodSel = null; ui.foodNew = false; ui.foodQ = ''; } render(); }
