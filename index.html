@@ -419,6 +419,11 @@ input::placeholder { color: var(--dim); }
 .ing { margin: 0 !important; }
 .nutbody .cl li, .ing li { padding: 8px 0; }
 .nutbody .cl li:first-child { border-top: 0; padding-top: 0; }
+/* muscle picker */
+.chip.half { border-style: dashed; border-color: var(--red); background: transparent; color: var(--ink); }
+.purp { margin: -4px 0 0; font-size: 13px; color: var(--muted); }
+.pend { display: flex; flex-direction: column; gap: 12px; border-color: var(--red); }
+.mmex .mn { margin: 2px 0 0; }
 </style>
 </head>
 <body>
@@ -500,7 +505,7 @@ input::placeholder { color: var(--dim); }
   }
 
   var state = { sessions: {}, body: [], cal: {}, plan: defaultPlan(), goals: { protein: 0, kcal: 0, fat: 0, carbs: 0 }, foods: [], recipes: [], programs: [], mmap: {} };
-  var ui = { tab: 'today', date: todayStr(), metric: 'e1rm', exercise: null, drafts: {}, newEx: '', bwKg: '', kcalIn: '', protIn: '', goalEdit: false, fold: {}, confirmDel: null, importPending: null, loaded: false, progName: '', mmDays: 7, foodOpen: false, foodQ: '', foodSel: null, foodG: '', foodNew: false, nf: { n: '', k: '', p: '', f: '', c: '', bc: '' }, nfNote: '', codeIn: '', fatIn: '', carbIn: '', gd: { k: '', p: '', f: '', c: '' }, nutRange: 14, nutMetric: 'k', recMode: '', rec: null };
+  var ui = { tab: 'today', date: todayStr(), metric: 'e1rm', exercise: null, drafts: {}, newEx: '', bwKg: '', kcalIn: '', protIn: '', goalEdit: false, fold: {}, confirmDel: null, importPending: null, loaded: false, progName: '', mmDays: 7, foodOpen: false, foodQ: '', foodSel: null, foodG: '', foodNew: false, nf: { n: '', k: '', p: '', f: '', c: '', bc: '' }, nfNote: '', codeIn: '', fatIn: '', carbIn: '', gd: { k: '', p: '', f: '', c: '' }, nutRange: 14, nutMetric: 'k', recMode: '', rec: null, pend: null };
   var msgTimer = null;
   var installEvt = null;
 
@@ -552,7 +557,15 @@ input::placeholder { color: var(--dim); }
 
   function cleanMmap(o) {
     var out = {};
-    if (o && typeof o === 'object') Object.keys(o).forEach(function (k) { if (MM_IDS.indexOf(o[k]) >= 0 && k.length <= 80) out[k] = o[k]; });
+    if (o && typeof o === 'object') Object.keys(o).forEach(function (k) {
+      var v = o[k];
+      if (k.length > 80) return;
+      if (typeof v === 'string') v = { p: [v], s: [] };
+      if (!v || !Array.isArray(v.p)) return;
+      var p = v.p.filter(function (g, i, a) { return MM_IDS.indexOf(g) >= 0 && a.indexOf(g) === i; });
+      var sc = (Array.isArray(v.s) ? v.s : []).filter(function (g, i, a) { return MM_IDS.indexOf(g) >= 0 && a.indexOf(g) === i && p.indexOf(g) < 0; });
+      if (p.length) out[k] = { p: p, s: sc };
+    });
     return out;
   }
   function cleanPrograms(a) {
@@ -1263,7 +1276,7 @@ input::placeholder { color: var(--dim); }
   function viewToday() {
     var s = cur(), exs = s ? s.exercises : [];
     var d = pd(ui.date), isToday = ui.date === todayStr(), rest = dayType(ui.date) === 'rest', rest0 = rest;
-    var h = duoCard() + '<section class="card day"><div class="daynav">' +
+    var h = pendCard() + duoCard() + '<section class="card day"><div class="daynav">' +
       '<button class="ib" data-act="dayshift" data-n="-1" aria-label="Предыдущий день">' + ic('left') + '</button>' +
       '<button class="daybtn" data-act="pickdate" aria-label="Выбрать дату"><span class="daybig"><span class="wd">' + WD[d.getDay()] + '</span><span class="dm">' + d.getDate() + ' ' + MON[d.getMonth()] + '</span></span>' + ic('calendar') + '</button>' +
       '<button class="ib" data-act="dayshift" data-n="1" aria-label="Следующий день">' + ic('right') + '</button></div>' +
@@ -1278,6 +1291,7 @@ input::placeholder { color: var(--dim); }
     (rest ? [] : exs).forEach(function (ex, i) {
       var prev = lastBefore(ex.name, ui.date), dr = draftFor(ex.name, ui.date), wn = weekPer(ui.date).per[ex.name] || 0;
       h += '<article class="card ex"><header><h2>' + esc(ex.name) + '</h2><span class="wk">' + wn + ' за нед.</span><button class="ib ghost" data-act="delex" data-i="' + i + '" aria-label="Убрать упражнение ' + esc(ex.name) + '">' + ic('trash') + '</button></header>' +
+        '<p class="purp">' + mmText(musclesFor(ex.name)) + ' <button class="linkbtn" data-act="mmedit" data-n="' + esc(ex.name) + '">изменить</button></p>' +
         (prev ? '<p class="prev">Прошлый раз, ' + fmtShort(prev.date) + ': ' + fmtSets(prev.sets) + '</p>' : '') +
         (ex.sets.length ? '<ol class="sets">' + ex.sets.map(function (st, j) {
           return '<li><span class="n">' + (j + 1) + '</span><span class="v">' + fmtNum(st.kg) + '<i>кг ×</i>' + st.reps + '</span>' +
@@ -1371,7 +1385,7 @@ input::placeholder { color: var(--dim); }
       fold('nutp', false, 'trend', 'Графики', '', kcalSection());
   }
   function viewMap() {
-    return '<div class="sect"><h2>' + ic('body') + 'Карта мышц</h2><span>нагрузка за период</span></div><section class="card">' + mmBody() + '</section>';
+    return pendCard() + '<div class="sect"><h2>' + ic('body') + 'Карта мышц</h2><span>нагрузка за период</span></div><section class="card">' + mmBody() + '</section>';
   }
   function viewProgress() {
     var names = usedNames();
@@ -1696,29 +1710,54 @@ input::placeholder { color: var(--dim); }
   var MM_IDS = MM.map(function (m) { return m.id; });
   function mmName(id) { return MM.filter(function (m) { return m.id === id; })[0].n; }
   var MM_RULES = [
-    [/разведени[а-я]*\s+ног|отведени[а-я]*\s+ног/, ['glutes'], []],
-    [/сгибани[а-я]*\s+ног|^сгибание$/, ['hamstrings'], []],
-    [/разгибани[а-я]*\s+ног/, ['quads'], []],
-    [/носк|икр/, ['calves'], []],
-    [/присед|жим ногами|гак|выпад|болгар/, ['quads'], ['glutes']],
-    [/румын|становая/, ['hamstrings', 'glutes'], ['back']],
-    [/ягодич|мост/, ['glutes'], ['hamstrings']],
-    [/пресс|скручиван|планк|подъем ног|складк/, ['abs'], []],
-    [/задн[а-я]+ дельт|обратн[а-я]+ разведен|реверс/, ['shoulders'], ['back']],
-    [/бицепс|курл|подъем штанги|молот/, ['biceps'], ['forearms']],
-    [/трицепс|французск|разгибани[а-я]*\s+рук|брусья/, ['triceps'], ['chest', 'shoulders']],
-    [/отжиман/, ['chest'], ['triceps', 'shoulders']],
-    [/сведени|бабочк|кроссовер|разведени/, ['chest'], []],
-    [/жим леж|жим гантел|хаммер/, ['chest'], ['shoulders', 'triceps']],
-    [/тяга|подтягив|верхн[а-я]+ блок/, ['back'], ['biceps']],
-    [/мах|жим стоя|армейск|дельт|плеч/, ['shoulders'], ['triceps']],
+    [/разведени[а-я]*\s+ног|отведени[а-я]*\s+ног|abduct/, ['glutes'], []],
+    [/сгибани[а-я]*\s+ног|^сгибание$|leg curl/, ['hamstrings'], []],
+    [/разгибани[а-я]*\s+ног|leg extension/, ['quads'], []],
+    [/носк|икр|calf/, ['calves'], []],
+    [/прям[а-я]+ ног|румын|stiff|\brdl/, ['hamstrings', 'glutes'], ['back']],
+    [/присед|жим ногами|гак|выпад|болгар|зашагив|squat|leg press|lunge/, ['quads'], ['glutes']],
+    [/становая|deadlift/, ['hamstrings', 'glutes'], ['back']],
+    [/ягодич|мост|hip thrust/, ['glutes'], ['hamstrings']],
+    [/гиперэкстенз/, ['back'], ['glutes', 'hamstrings']],
+    [/пресс|скручиван|планк|подъем ног|складк|ролик|crunch|plank/, ['abs'], []],
+    [/задн[а-я]+ дельт|обратн[а-я]+ разведен|реверс|к лицу|face pull/, ['shoulders'], ['back']],
+    [/подбородк/, ['shoulders'], ['biceps']],
+    [/шраг|shrug/, ['back'], ['shoulders']],
+    [/бицепс|курл|подъем штанги|молот|curl/, ['biceps'], ['forearms']],
+    [/трицепс|французск|разгибани[а-я]*\s+рук|брусья|узким хватом|жим узк|pushdown/, ['triceps'], ['chest', 'shoulders']],
+    [/отжиман|push.?up/, ['chest'], ['triceps', 'shoulders']],
+    [/сведени|бабочк|кроссовер|разведени|\bfly|pec deck/, ['chest'], []],
+    [/пуловер|pullover/, ['back'], ['chest']],
+    [/жим[а-я ]*леж|жим[а-я ]*наклон|жим гантел|хаммер|жим от груди|жим в тренажер|bench/, ['chest'], ['shoulders', 'triceps']],
+    [/тяга|подтягив|верхн[а-я]+ блок|\brow|pull.?up|lat pull/, ['back'], ['biceps']],
+    [/мах|жим стоя|армейск|дельт|плеч|overhead|arnold|арнольд/, ['shoulders'], ['triceps']],
     [/предплеч|запяст/, ['forearms'], []]
   ];
-  function musclesFor(name) {
-    if (state.mmap[name]) return { p: [state.mmap[name]], s: [], known: true };
+  function guessMuscles(name) {
     var n = String(name).toLowerCase().replace(/ё/g, 'е').trim();
-    for (var i = 0; i < MM_RULES.length; i++) if (MM_RULES[i][0].test(n)) return { p: MM_RULES[i][1], s: MM_RULES[i][2], known: true };
+    for (var i = 0; i < MM_RULES.length; i++) if (MM_RULES[i][0].test(n)) return { p: MM_RULES[i][1].slice(), s: MM_RULES[i][2].slice(), known: true };
     return { p: [], s: [], known: false };
+  }
+  function musclesFor(name) {
+    var o = state.mmap[name];
+    if (o) return { p: o.p, s: o.s, known: true };
+    return guessMuscles(name);
+  }
+  function mmText(m) {
+    if (!m.p.length) return 'мышцы не определены';
+    return m.p.map(mmName).join(', ') + (m.s.length ? ' · ещё: ' + m.s.map(function (g) { return mmName(g).toLowerCase(); }).join(', ') : '');
+  }
+  function pendCard() {
+    var q = ui.pend;
+    if (!q) return '';
+    return '<section class="card pend"><p class="sub">' + (q.edit ? 'Мышцы упражнения' : 'Новое упражнение') + '</p><h3>' + esc(q.name) + '</h3>' +
+      '<p class="fnote">' + (q.auto ? 'По названию приложение определило: <b>' + mmText(q.auto) + '</b>. Проверь и поправь, если нужно.' : 'По названию не получилось понять, на что оно. Выбери мышцы сам.') + '</p>' +
+      '<div class="chips">' + MM.map(function (m) {
+        var st = q.p.indexOf(m.id) >= 0 ? 1 : q.s.indexOf(m.id) >= 0 ? 2 : 0;
+        return '<button class="chip' + (st === 1 ? ' on' : st === 2 ? ' half' : '') + '" data-act="mmtoggle" data-g="' + m.id + '" aria-pressed="' + (st > 0) + '">' + m.n + (st === 1 ? ' · основная' : st === 2 ? ' · вспом.' : '') + '</button>';
+      }).join('') + '</div>' +
+      '<p class="fnote">Нажми на мышцу: первый раз основная (целый подход), второй раз вспомогательная (половина подхода), третий раз убрать.</p>' +
+      '<div class="acts"><button class="pri" data-act="pendsave">' + (q.edit ? 'Сохранить' : 'Добавить в тренировку') + '</button><button class="sec" data-act="pendno">Отмена</button></div></section>';
   }
   function mmPeriod() { return ui.mmDays === 30 ? 30 : 7; }
   function mmLoad() {
@@ -1771,10 +1810,8 @@ input::placeholder { color: var(--dim); }
     var seg = '<div class="seg" role="group" aria-label="Период">' + [7, 30].map(function (d) {
       return '<button data-act="mmdays" data-d="' + d + '" aria-pressed="' + (mmPeriod() === d) + '">' + (d === 7 ? '7 дней' : '30 дней') + '</button>';
     }).join('') + '</div>';
-    var sel = L.used.length ? fold('mmx', false, 'list', 'Какое упражнение на какую мышцу', '', '<p class="fnote">Если приложение угадало неверно, выбери мышцу сам.</p>' + L.used.sort().map(function (n) {
-      var m = musclesFor(n), cur0 = state.mmap[n] || m.p[0] || '';
-      return '<div class="mmex"><span>' + esc(n) + '</span><select data-mm="' + esc(n) + '" aria-label="Мышца для упражнения ' + esc(n) + '">' + (cur0 ? '' : '<option value="" selected>Не выбрано</option>') +
-        MM.map(function (g) { return '<option value="' + g.id + '"' + (g.id === cur0 ? ' selected' : '') + '>' + g.n + '</option>'; }).join('') + '</select></div>';
+    var sel = L.used.length ? fold('mmx', false, 'list', 'Какое упражнение на какую мышцу', '', '<p class="fnote">Если приложение определило неверно, нажми «Изменить».</p>' + L.used.sort().map(function (n) {
+      return '<div class="mmex"><span>' + esc(n) + '<small class="mn">' + mmText(musclesFor(n)) + '</small></span><button class="sec" data-act="mmedit" data-n="' + esc(n) + '">Изменить</button></div>';
     }).join('')) : '';
     return seg + '<div class="mmfig"><figure>' + mmFigure('front', lv) + '<figcaption>Спереди</figcaption></figure><figure>' + mmFigure('back', lv) + '<figcaption>Сзади</figcaption></figure></div>' +
       '<div class="mmleg"><span><i class="mu0"></i>нет</span><span><i class="mu1"></i>низкая</span><span><i class="mu2"></i>средняя</span><span><i class="mu3"></i>высокая</span></div>' +
@@ -1965,15 +2002,21 @@ input::placeholder { color: var(--dim); }
     render();
     setMsg('Продукт сохранён: ' + n + '.');
   }
+  function addExerciseDirect(name) {
+    ensure(ui.date).exercises.push({ name: name, sets: [] });
+    persistSession(ui.date);
+  }
   function addExercise(raw) {
     var name = String(raw).trim().replace(/\s+/g, ' ');
     if (!name) { setMsg('Впиши название упражнения.'); return false; }
     var sess = ensure(ui.date);
     if (sess.exercises.some(function (x) { return x.name.toLowerCase() === name.toLowerCase(); })) { setMsg('Это упражнение уже есть в тренировке.'); return false; }
     var known = PRESETS.concat(usedNames()).filter(function (n) { return n.toLowerCase() === name.toLowerCase(); })[0];
-    sess.exercises.push({ name: known || name, sets: [] });
-    persistSession(ui.date);
-    return true;
+    if (known || state.mmap[name]) { addExerciseDirect(known || name); return true; }
+    var g = guessMuscles(name);
+    ui.pend = { name: name, p: g.p.slice(), s: g.s.slice(), auto: g.known ? g : null, edit: false };
+    render(); window.scrollTo(0, 0);
+    return false;
   }
   function addMeal(o) {
     var k = o.k || 0, p = o.p || 0, fa = o.f || 0, cb = o.c || 0;
@@ -2033,6 +2076,31 @@ input::placeholder { color: var(--dim); }
     }
     else if (a === 'delset') { s.exercises[i].sets.splice(+b.dataset.j, 1); persistSession(ui.date); render(); }
     else if (a === 'delex') { s.exercises.splice(i, 1); persistSession(ui.date); render(); }
+    else if (a === 'mmedit') {
+      var en = b.dataset.n, em = musclesFor(en), eg = guessMuscles(en);
+      ui.pend = { name: en, p: em.p.slice(), s: em.s.slice(), auto: eg.known ? eg : null, edit: true };
+      render(); window.scrollTo(0, 0);
+    }
+    else if (a === 'mmtoggle' && ui.pend) {
+      var tg = b.dataset.g, tq = ui.pend, ip = tq.p.indexOf(tg), is = tq.s.indexOf(tg);
+      if (ip >= 0) { tq.p.splice(ip, 1); tq.s.push(tg); }
+      else if (is >= 0) tq.s.splice(is, 1);
+      else tq.p.push(tg);
+      render();
+    }
+    else if (a === 'pendno') { ui.pend = null; render(); }
+    else if (a === 'pendsave' && ui.pend) {
+      var pq = ui.pend;
+      if (!pq.p.length) { setMsg('Выбери хотя бы одну основную мышцу.'); return; }
+      state.mmap[pq.name] = { p: pq.p.slice(), s: pq.s.slice() };
+      persistMmap();
+      if (!pq.edit) {
+        if (!ensure(ui.date).exercises.some(function (x) { return x.name.toLowerCase() === pq.name.toLowerCase(); })) addExerciseDirect(pq.name);
+        ui.newEx = '';
+      }
+      ui.pend = null; render();
+      setMsg(pq.edit ? 'Мышцы сохранены: ' + pq.name + '.' : 'Добавлено: ' + pq.name + '.');
+    }
     else if (a === 'addquick') { if (addExercise(b.dataset.n)) render(); }
     else if (a === 'addex') { if (addExercise(ui.newEx)) { ui.newEx = ''; render(); } }
     else if (a === 'metric') { ui.metric = b.dataset.m; render(); }
