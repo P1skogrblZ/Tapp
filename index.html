@@ -424,6 +424,8 @@ input::placeholder { color: var(--dim); }
 .purp { margin: -4px 0 0; font-size: 13px; color: var(--muted); }
 .pend { display: flex; flex-direction: column; gap: 12px; border-color: var(--red); }
 .mmex .mn { margin: 2px 0 0; }
+.grp { margin: 0; font-size: 11px; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
+.pend .chips { margin-top: -6px; }
 </style>
 </head>
 <body>
@@ -562,6 +564,8 @@ input::placeholder { color: var(--dim); }
       if (k.length > 80) return;
       if (typeof v === 'string') v = { p: [v], s: [] };
       if (!v || !Array.isArray(v.p)) return;
+      function ex(l) { var r = []; (Array.isArray(l) ? l : []).forEach(function (g) { (MM_LEGACY[g] || [g]).forEach(function (x) { r.push(x); }); }); return r; }
+      v = { p: ex(v.p), s: ex(v.s) };
       var p = v.p.filter(function (g, i, a) { return MM_IDS.indexOf(g) >= 0 && a.indexOf(g) === i; });
       var sc = (Array.isArray(v.s) ? v.s : []).filter(function (g, i, a) { return MM_IDS.indexOf(g) >= 0 && a.indexOf(g) === i && p.indexOf(g) < 0; });
       if (p.length) out[k] = { p: p, s: sc };
@@ -1703,34 +1707,53 @@ input::placeholder { color: var(--dim); }
 
   /* ---------- muscle map ---------- */
   var MM = [
-    { id: 'chest', n: 'Грудь' }, { id: 'back', n: 'Спина' }, { id: 'shoulders', n: 'Плечи' }, { id: 'biceps', n: 'Бицепс' },
-    { id: 'triceps', n: 'Трицепс' }, { id: 'forearms', n: 'Предплечья' }, { id: 'abs', n: 'Пресс' }, { id: 'quads', n: 'Квадрицепс' },
-    { id: 'hamstrings', n: 'Бицепс бедра' }, { id: 'glutes', n: 'Ягодицы' }, { id: 'calves', n: 'Икры' }
+    { id: 'chest_up', g: 'chest', n: 'Грудь (верх)', s: 'Верх' }, { id: 'chest_mid', g: 'chest', n: 'Грудь (середина)', s: 'Середина' }, { id: 'chest_low', g: 'chest', n: 'Грудь (низ)', s: 'Низ' },
+    { id: 'delt_front', g: 'shoulders', n: 'Плечи (передние дельты)', s: 'Передние дельты' }, { id: 'delt_side', g: 'shoulders', n: 'Плечи (средние дельты)', s: 'Средние дельты' }, { id: 'delt_rear', g: 'shoulders', n: 'Плечи (задние дельты)', s: 'Задние дельты' },
+    { id: 'traps', g: 'back', n: 'Спина (трапеции)', s: 'Трапеции', nw: 1 }, { id: 'lats', g: 'back', n: 'Спина (широчайшие)', s: 'Широчайшие' }, { id: 'midback', g: 'back', n: 'Спина (середина)', s: 'Середина' }, { id: 'lowback', g: 'back', n: 'Поясница', s: 'Поясница', nw: 1 },
+    { id: 'biceps', g: 'arms', n: 'Бицепс', s: 'Бицепс' }, { id: 'triceps', g: 'arms', n: 'Трицепс', s: 'Трицепс' }, { id: 'forearms', g: 'arms', n: 'Предплечья', s: 'Предплечья' },
+    { id: 'abs_up', g: 'abs', n: 'Пресс (верх)', s: 'Верх' }, { id: 'abs_low', g: 'abs', n: 'Пресс (низ)', s: 'Низ' }, { id: 'obliques', g: 'abs', n: 'Косые мышцы', s: 'Косые', nw: 1 },
+    { id: 'quads', g: 'legs', n: 'Квадрицепс', s: 'Квадрицепс' }, { id: 'adductors', g: 'legs', n: 'Приводящие', s: 'Приводящие', nw: 1 }, { id: 'hamstrings', g: 'legs', n: 'Бицепс бедра', s: 'Бицепс бедра' },
+    { id: 'glutes', g: 'legs', n: 'Ягодицы', s: 'Ягодицы' }, { id: 'calves', g: 'legs', n: 'Икры', s: 'Икры' }
   ];
+  var MM_GROUPS = [['chest', 'Грудь'], ['shoulders', 'Плечи'], ['back', 'Спина'], ['arms', 'Руки'], ['abs', 'Пресс'], ['legs', 'Ноги']];
+  var MM_LEGACY = { chest: ['chest_up', 'chest_mid', 'chest_low'], back: ['lats', 'midback'], shoulders: ['delt_front', 'delt_side', 'delt_rear'], abs: ['abs_up', 'abs_low'] };
   var MM_IDS = MM.map(function (m) { return m.id; });
   function mmName(id) { return MM.filter(function (m) { return m.id === id; })[0].n; }
   var MM_RULES = [
+    [/сведени[а-я]*\s+ног|приводящ|adductor/, ['adductors'], []],
     [/разведени[а-я]*\s+ног|отведени[а-я]*\s+ног|abduct/, ['glutes'], []],
     [/сгибани[а-я]*\s+ног|^сгибание$|leg curl/, ['hamstrings'], []],
     [/разгибани[а-я]*\s+ног|leg extension/, ['quads'], []],
     [/носк|икр|calf/, ['calves'], []],
-    [/прям[а-я]+ ног|румын|stiff|\brdl/, ['hamstrings', 'glutes'], ['back']],
-    [/присед|жим ногами|гак|выпад|болгар|зашагив|squat|leg press|lunge/, ['quads'], ['glutes']],
-    [/становая|deadlift/, ['hamstrings', 'glutes'], ['back']],
+    [/прям[а-я]+ ног|румын|stiff|\brdl/, ['hamstrings', 'glutes'], ['lowback']],
+    [/сумо/, ['quads', 'glutes', 'adductors'], ['hamstrings', 'lowback']],
+    [/присед|жим ногами|гак|выпад|болгар|зашагив|squat|leg press|lunge/, ['quads'], ['glutes', 'adductors']],
+    [/становая|deadlift/, ['hamstrings', 'glutes', 'lowback'], ['traps', 'midback', 'quads', 'forearms']],
     [/ягодич|мост|hip thrust/, ['glutes'], ['hamstrings']],
-    [/гиперэкстенз/, ['back'], ['glutes', 'hamstrings']],
-    [/пресс|скручиван|планк|подъем ног|складк|ролик|crunch|plank/, ['abs'], []],
-    [/задн[а-я]+ дельт|обратн[а-я]+ разведен|реверс|к лицу|face pull/, ['shoulders'], ['back']],
-    [/подбородк/, ['shoulders'], ['biceps']],
-    [/шраг|shrug/, ['back'], ['shoulders']],
+    [/гиперэкстенз/, ['lowback'], ['glutes', 'hamstrings']],
+    [/кос[а-я]+ мышц|боков[а-я]+ скручиван|русск[а-я]+ скрутк|наклон[а-я]* в сторон|боков[а-я]+ планк/, ['obliques'], ['abs_up']],
+    [/подъем ног|уголок|складк|реверс[а-я]* скручиван/, ['abs_low'], ['abs_up']],
+    [/планк|plank|ролик/, ['abs_up', 'abs_low'], ['obliques']],
+    [/пресс|скручиван|crunch/, ['abs_up'], ['abs_low']],
+    [/задн[а-я]+ дельт|обратн[а-я]+ разведен|реверс|к лицу|face pull|мах[а-я]* [а-я ]*наклон|разведени[а-я]* [а-я ]*наклон|rear delt/, ['delt_rear'], ['midback', 'traps']],
+    [/подбородк/, ['delt_side', 'traps'], ['biceps']],
+    [/шраг|shrug/, ['traps'], ['delt_side', 'forearms']],
+    [/мах[а-я]* [а-я ]*(вперед|перед собой)|подъем[а-я]* [а-я ]*перед собой|front raise/, ['delt_front'], ['delt_side']],
+    [/мах|в стороны|боков[а-я]+ подъем|lateral raise/, ['delt_side'], ['traps']],
     [/бицепс|курл|подъем штанги|молот|curl/, ['biceps'], ['forearms']],
-    [/трицепс|французск|разгибани[а-я]*\s+рук|брусья|узким хватом|жим узк|pushdown/, ['triceps'], ['chest', 'shoulders']],
-    [/отжиман|push.?up/, ['chest'], ['triceps', 'shoulders']],
-    [/сведени|бабочк|кроссовер|разведени|\bfly|pec deck/, ['chest'], []],
-    [/пуловер|pullover/, ['back'], ['chest']],
-    [/жим[а-я ]*леж|жим[а-я ]*наклон|жим гантел|хаммер|жим от груди|жим в тренажер|bench/, ['chest'], ['shoulders', 'triceps']],
-    [/тяга|подтягив|верхн[а-я]+ блок|\brow|pull.?up|lat pull/, ['back'], ['biceps']],
-    [/мах|жим стоя|армейск|дельт|плеч|overhead|arnold|арнольд/, ['shoulders'], ['triceps']],
+    [/брусья|на брусьях/, ['triceps', 'chest_low'], ['chest_mid', 'delt_front']],
+    [/трицепс|французск|разгибани[а-я]*\s+рук|жим узк|узким хватом|pushdown/, ['triceps'], ['chest_mid', 'delt_front']],
+    [/обратн[а-я]+ наклон|головой вниз|decline/, ['chest_low'], ['chest_mid', 'triceps']],
+    [/наклонн|incline/, ['chest_up'], ['chest_mid', 'delt_front', 'triceps']],
+    [/жим стоя|жим[а-я ]*сидя|армейск|над головой|overhead|arnold|арнольд|дельт|плеч/, ['delt_front', 'delt_side'], ['triceps', 'traps']],
+    [/отжиман|push.?up/, ['chest_mid'], ['chest_low', 'delt_front', 'triceps']],
+    [/сведени|бабочк|кроссовер|разведени|\bfly|pec deck/, ['chest_mid'], ['chest_up', 'chest_low']],
+    [/жим[а-я ]*леж|жим гантел|хаммер|жим от груди|жим в тренажер|bench/, ['chest_mid'], ['chest_up', 'chest_low', 'delt_front', 'triceps']],
+    [/пуловер|pullover/, ['lats'], ['chest_mid', 'triceps']],
+    [/(^|\s)вис($|\s)|dead hang|фермер|farmer|удержани[а-я]* хвата/, ['forearms'], ['lats']],
+    [/подтягив|pull.?up|chin.?up/, ['lats', 'forearms'], ['biceps', 'midback']],
+    [/верхн[а-я]+ блок|lat pull/, ['lats'], ['biceps', 'midback', 'forearms']],
+    [/тяга|\brow/, ['midback', 'lats'], ['biceps', 'lowback', 'delt_rear', 'traps', 'forearms']],
     [/предплеч|запяст/, ['forearms'], []]
   ];
   function guessMuscles(name) {
@@ -1752,10 +1775,12 @@ input::placeholder { color: var(--dim); }
     if (!q) return '';
     return '<section class="card pend"><p class="sub">' + (q.edit ? 'Мышцы упражнения' : 'Новое упражнение') + '</p><h3>' + esc(q.name) + '</h3>' +
       '<p class="fnote">' + (q.auto ? 'По названию приложение определило: <b>' + mmText(q.auto) + '</b>. Проверь и поправь, если нужно.' : 'По названию не получилось понять, на что оно. Выбери мышцы сам.') + '</p>' +
-      '<div class="chips">' + MM.map(function (m) {
-        var st = q.p.indexOf(m.id) >= 0 ? 1 : q.s.indexOf(m.id) >= 0 ? 2 : 0;
-        return '<button class="chip' + (st === 1 ? ' on' : st === 2 ? ' half' : '') + '" data-act="mmtoggle" data-g="' + m.id + '" aria-pressed="' + (st > 0) + '">' + m.n + (st === 1 ? ' · основная' : st === 2 ? ' · вспом.' : '') + '</button>';
-      }).join('') + '</div>' +
+      MM_GROUPS.map(function (gr) {
+        return '<p class="grp">' + gr[1] + '</p><div class="chips">' + MM.filter(function (m) { return m.g === gr[0]; }).map(function (m) {
+          var st = q.p.indexOf(m.id) >= 0 ? 1 : q.s.indexOf(m.id) >= 0 ? 2 : 0;
+          return '<button class="chip' + (st === 1 ? ' on' : st === 2 ? ' half' : '') + '" data-act="mmtoggle" data-g="' + m.id + '" aria-pressed="' + (st > 0) + '">' + m.s + (st === 1 ? ' · осн.' : st === 2 ? ' · вспом.' : '') + '</button>';
+        }).join('') + '</div>';
+      }).join('') +
       '<p class="fnote">Нажми на мышцу: первый раз основная (целый подход), второй раз вспомогательная (половина подхода), третий раз убрать.</p>' +
       '<div class="acts"><button class="pri" data-act="pendsave">' + (q.edit ? 'Сохранить' : 'Добавить в тренировку') + '</button><button class="sec" data-act="pendno">Отмена</button></div></section>';
   }
@@ -1783,30 +1808,51 @@ input::placeholder { color: var(--dim); }
   var ARM = 'M20 61 Q17 71 18.5 81 L26 81 Q28 71 30 59 Z';
   var FARM = 'M18 83 Q15 96 14.5 108 L21 109 Q25 97 26.5 83 Z';
   var DELT = 'M33 36 Q23 36 20 47 Q19 55 23 60 L30 56 Q30 46 36 41 Z';
-  var MM_FRONT = [['shoulders', DELT], ['chest', 'M36 40 Q43 37 49.2 41 L49.2 57 Q41 60 33 55 Q32 46 36 40 Z'],
-    ['abs', 'M40.5 59 L49.2 59 L49.2 93 Q43 93 40 87 Q39 72 40.5 59 Z'], ['biceps', ARM], ['forearms', FARM],
-    ['quads', 'M34 97 Q31 122 33.5 143 L47 143 Q49.2 120 49.2 97 Z']];
-  var MM_BACK = [['back', 'M49.2 28 Q43 33 36 38 Q41 45 45 51 L49.2 55 Z'], ['shoulders', DELT],
-    ['back', 'M36.5 46 Q36 66 38.5 82 Q42 94 49.2 92 L49.2 58 Q42 56 36.5 46 Z'], ['triceps', ARM], ['forearms', FARM],
+  var CHEST_P = 'M36 40 Q43 37 49.2 41 L49.2 57 Q41 60 33 55 Q32 46 36 40 Z';
+  var ABS_P = 'M40.5 59 L49.2 59 L49.2 93 Q43 93 40 87 Q39 72 40.5 59 Z';
+  var QUAD_P = 'M34 97 Q31 122 33.5 143 L47 143 Q49.2 120 49.2 97 Z';
+  var BACK_P = 'M36.5 46 Q36 66 38.5 82 Q42 94 49.2 92 L49.2 58 Q42 56 36.5 46 Z';
+  var TRAP_P = 'M49.2 28 Q43 33 36 38 Q41 45 45 51 L49.2 55 Z';
+  function box(x1, y1, x2, y2) { var e = 0.35; return 'M' + (x1 + e) + ' ' + (y1 + e) + ' H' + (x2 - e) + ' V' + (y2 - e) + ' H' + (x1 + e) + ' Z'; }
+  /* [id, shape, optional clip region that cuts the shape into parts] */
+  var MM_FRONT = [
+    ['delt_side', DELT, box(14, 30, 27, 64)], ['delt_front', DELT, box(27, 30, 40, 64)],
+    ['chest_up', CHEST_P, box(28, 34, 50, 46)], ['chest_mid', CHEST_P, box(28, 46, 50, 53)], ['chest_low', CHEST_P, box(28, 53, 50, 62)],
+    ['abs_up', ABS_P, box(38, 56, 50, 73)], ['abs_low', ABS_P, box(38, 73, 50, 96)],
+    ['obliques', 'M36.5 58 L40 59 Q38.6 72 39.6 87 Q40.6 93 38 94 Q36 76 36.5 58 Z'],
+    ['biceps', ARM], ['forearms', FARM],
+    ['quads', QUAD_P], ['adductors', QUAD_P, 'M43.5 96 H50 V138 H46 Q43.5 120 43.5 96 Z']];
+  var MM_BACK = [
+    ['delt_side', DELT, box(14, 30, 27, 64)], ['delt_rear', DELT, box(27, 30, 40, 64)],
+    ['lats', BACK_P, 'M30 40 L43.4 50 L42.6 73.6 L39.6 73.6 L39.6 96 L30 96 Z'], ['midback', BACK_P, box(43, 50, 50, 74)], ['lowback', BACK_P, box(40, 74, 50, 96)],
+    ['traps', TRAP_P], ['triceps', ARM], ['forearms', FARM],
     ['glutes', 'M34 95 Q31 108 38 117 Q44 119 49.2 116 L49.2 95 Z'], ['hamstrings', 'M34 120 Q32 134 34 148 L47 148 Q49.2 134 49.2 119 Z'],
     ['calves', 'M34 151 Q31 172 36 194 L45 194 Q48 172 46.5 151 Z']];
   function mmFigure(view, lv) {
     var base = '<path class="bd" d="M45 25 L50 25 L50 33 L44 33 Z M33 37 L50 35 L50 94 L38 94 Q36 70 34 56 Z M13.5 111 Q14 119 18 119 Q22 118 22 110 Z M34 146 Q32 170 36 197 L44 197 Q46 170 46 146 Z M35 199 L45 199 L46 206 L32 206 Z"/>';
-    var list = view === 'front' ? MM_FRONT : MM_BACK;
-    var half = base + list.map(function (m) { return '<path class="mu mu' + lv[m[0]] + '" d="' + m[1] + '"/>'; }).join('');
-    return '<svg viewBox="0 0 100 208" role="img" aria-label="' + (view === 'front' ? 'Вид спереди' : 'Вид сзади') + '">' +
+    var list = view === 'front' ? MM_FRONT : MM_BACK, defs = '', n = 0;
+    var half = base + list.map(function (m) {
+      var cls = 'mu mu' + lv[m[0]];
+      if (!m[2]) return '<path class="' + cls + '" data-m="' + m[0] + '" d="' + m[1] + '"/>';
+      var id = 'cp' + view.charAt(0) + (n++);
+      defs += '<clipPath id="' + id + '"><path d="' + m[2] + '"/></clipPath>';
+      return '<path class="' + cls + '" data-m="' + m[0] + '" clip-path="url(#' + id + ')" d="' + m[1] + '"/>';
+    }).join('');
+    return '<svg viewBox="0 0 100 208" role="img" aria-label="' + (view === 'front' ? 'Вид спереди' : 'Вид сзади') + '"><defs>' + defs + '</defs>' +
       '<ellipse class="bd" cx="50" cy="14" rx="9" ry="11"/><g>' + half + '</g><g transform="translate(100 0) scale(-1 1)">' + half + '</g></svg>';
   }
+  function mmWarn(id) { return !MM.filter(function (m) { return m.id === id; })[0].nw; }
+  function lowList(L) { return MM_IDS.filter(function (id) { return mmWarn(id) && mmLevel(L.week[id]) <= 1; }); }
   function mmBody() {
-    var L = mmLoad(), lv = {}, rows = [], low = [];
+    var L = mmLoad(), lv = {}, rows = [];
     MM_IDS.forEach(function (id) { lv[id] = mmLevel(L.week[id]); });
-    var order = MM_IDS.slice().sort(function (a, b) { return L.week[b] - L.week[a]; });
-    var mx = Math.max(1, L.week[order[0]]);
+    var order = MM_IDS.filter(function (id) { return L.raw[id] > 0; }).sort(function (a, b) { return L.week[b] - L.week[a]; });
+    var mx = order.length ? Math.max(10, L.week[order[0]]) : 10;
     order.forEach(function (id) {
-      rows.push('<div class="mmrow"><span>' + mmName(id) + '</span><b>' + fmtNum(Math.round(L.raw[id] * 10) / 10) + '<small>' + MM_LV[lv[id]] + '</small></b><div class="meter"><span style="width:' + Math.round(L.week[id] / Math.max(mx, 10) * 100) + '%"></span></div></div>');
-      if (lv[id] <= 1) low.push(mmName(id));
+      rows.push('<div class="mmrow"><span>' + mmName(id) + '</span><b>' + fmtNum(Math.round(L.raw[id] * 10) / 10) + '<small>' + MM_LV[lv[id]] + '</small></b><div class="meter"><span style="width:' + Math.round(L.week[id] / mx * 100) + '%"></span></div></div>');
     });
-    var any = MM_IDS.some(function (id) { return L.raw[id] > 0; });
+    var lowIds = lowList(L), low = lowIds.map(mmName), lowTxt = low.length > 6 ? low.slice(0, 6).join(', ') + ' и ещё ' + (low.length - 6) : low.join(', ');
+    var any = order.length > 0;
     var seg = '<div class="seg" role="group" aria-label="Период">' + [7, 30].map(function (d) {
       return '<button data-act="mmdays" data-d="' + d + '" aria-pressed="' + (mmPeriod() === d) + '">' + (d === 7 ? '7 дней' : '30 дней') + '</button>';
     }).join('') + '</div>';
@@ -1815,11 +1861,11 @@ input::placeholder { color: var(--dim); }
     }).join('')) : '';
     return seg + '<div class="mmfig"><figure>' + mmFigure('front', lv) + '<figcaption>Спереди</figcaption></figure><figure>' + mmFigure('back', lv) + '<figcaption>Сзади</figcaption></figure></div>' +
       '<div class="mmleg"><span><i class="mu0"></i>нет</span><span><i class="mu1"></i>низкая</span><span><i class="mu2"></i>средняя</span><span><i class="mu3"></i>высокая</span></div>' +
-      (any ? '<p class="fnote">' + (low.length ? 'Мало внимания: <b>' + low.join(', ') + '</b>.' : 'Нагрузка по всем группам ровная.') + ' Подходы за ' + (mmPeriod() === 7 ? '7 дней' : '30 дней') + ', вспомогательные мышцы считаются за половину подхода. Уровень ориентируется на подходы в неделю: до 4 низкая, до 10 средняя, от 10 высокая.</p>' : '<p class="fnote">Запиши тренировку, и мышцы закрасятся.</p>') +
+      (any ? '<p class="fnote">' + (low.length ? 'Мало внимания: <b>' + lowTxt + '</b>.' : 'Нагрузка по всем частям ровная.') + ' Подходы за ' + (mmPeriod() === 7 ? '7 дней' : '30 дней') + ', вспомогательные мышцы считаются за половину подхода. Уровень по подходам в неделю: до 4 низкая, до 10 средняя, от 10 высокая. Трапеции, поясница, косые и приводящие в «мало внимания» не попадают: они работают во многих упражнениях.</p>' : '<p class="fnote">Запиши тренировку, и мышцы закрасятся.</p>') +
       '<div>' + rows.join('') + '</div>' + sel;
   }
   function mmSummary() {
-    var L = mmLoad(), low = MM_IDS.filter(function (id) { return mmLevel(L.week[id]) <= 1; }).map(mmName);
+    var L = mmLoad(), low = lowList(L).map(mmName);
     if (!MM_IDS.some(function (id) { return L.raw[id] > 0; })) return '';
     return low.length > 3 ? 'мало: ' + low.slice(0, 2).join(', ') + '…' : low.length ? 'мало: ' + low.join(', ') : 'нагрузка ровная';
   }
